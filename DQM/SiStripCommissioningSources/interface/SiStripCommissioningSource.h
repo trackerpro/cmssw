@@ -70,13 +70,13 @@ class SiStripCommissioningSource : public edm::EDAnalyzer {
   
   /** */
   void fillCablingHistos( const SiStripEventSummary* const,
-			  const edm::DetSetVector<SiStripRawDigi>& );
+			  const edm::DetSetVector<SiStripRawDigi> * );
 
   /** */
   void fillHistos( const SiStripEventSummary* const,
-		   const edm::DetSetVector<SiStripRawDigi>&, 
-		   const edm::DetSetVector<SiStripRawDigi>& = edm::DetSetVector<SiStripRawDigi>(),
-		   const edmNew::DetSetVector<SiStripCluster> & = edmNew::DetSetVector<SiStripCluster>());
+		   const edm::DetSetVector<SiStripRawDigi> *, 
+		   const edm::DetSetVector<SiStripRawDigi> * = NULL,
+		   const edmNew::DetSetVector<SiStripCluster> * = NULL);
   
   /** */
   void remove();
