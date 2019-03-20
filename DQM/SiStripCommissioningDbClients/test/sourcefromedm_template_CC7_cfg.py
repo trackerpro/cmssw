@@ -45,11 +45,13 @@ process.sistripconn = cms.ESProducer("SiStripConnectivity")
 process.load("Geometry.CMSCommonData.cmsIdealGeometryXML_cfi")
 process.load("Geometry.TrackerNumberingBuilder.trackerTopology_cfi")
 process.load("Geometry.TrackerGeometryBuilder.trackerParameters_cfi")
+process.load("Geometry.TrackerNumberingBuilder.trackerNumberingGeometry_cfi")
 
 infilename = "file:"+inputPath+"/runRUNNUMBER/runRUNNUMBER.root"
     
 process.source = cms.Source("PoolSource",
         fileNames = cms.untracked.vstring(infilename)
+        duplicateCheckMode = cms.untracked.string("noDuplicateCheck")                            
 )
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
@@ -105,9 +107,11 @@ else:
         )
     process.siStripQualityESProducer.UseEmptyRunInfo = cms.bool(True)
     process.load('CalibTracker.SiStripESProducers.fake.SiStripThresholdFakeESSource_cfi') ## fake conditions for thresholds                                                                           
+    process.load("Geometry.TrackerGeometryBuilder.trackerGeometry_cfi")
+    process.load("Alignment.CommonAlignmentProducer.FakeAlignmentSource_cfi")
     ### Zero suppression                                                                                                                                                                              
     process.load('RecoLocalTracker.SiStripZeroSuppression.SiStripZeroSuppression_cfi') ## to perform zero suppression                                                                                 
-    process.siStripZeroSuppression.RawDigiProducersList = cms.VInputTag(cms.InputTag("SiStripSpyDigiConverter","VirginRaw"));
+    process.siStripZeroSuppression.RawDigiProducersList = cms.VInputTag(cms.InputTag("SiStripSpyDigiConverter","SpyVirginRaw"));
     ### fake product to run the clustering                                                                                                                                                          
     process.load('CalibTracker.SiStripESProducers.fake.SiStripApvGainFakeESSource_cfi')
     process.load('CalibTracker.SiStripESProducers.SiStripGainESProducer_cfi')
@@ -119,7 +123,7 @@ else:
             ))
     ### clustering                                                                                                                                                                                  
     process.load('RecoLocalTracker.SiStripClusterizer.SiStripClusterizer_cfi')
-    process.siStripClusters.DigiProducersList = cms.VInputTag(cms.InputTag('siStripZeroSuppression',"VirginRaw"))
+    process.siStripClusters.DigiProducersList = cms.VInputTag(cms.InputTag('siStripZeroSuppression',"SpyVirginRaw"))
 
     
 
