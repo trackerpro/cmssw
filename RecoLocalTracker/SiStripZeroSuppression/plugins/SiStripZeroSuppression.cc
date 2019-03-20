@@ -38,7 +38,7 @@ SiStripZeroSuppression::SiStripZeroSuppression(edm::ParameterSet const& conf)
     if        ( tagName == "ProcessedRaw" ) {
       inputType = RawType::ProcessedRaw;
       if (produceHybridFormat) throw cms::Exception("Processed Raw Cannot be converted in hybrid Format");
-    } else if ( tagName == "VirginRaw" ) {
+    } else if ( tagName == "VirginRaw" or tagName == "SpyVirginRaw") {
       inputType = RawType::VirginRaw;
     } else if ( tagName == "ScopeMode" ) {
       inputType = RawType::ScopeMode;
