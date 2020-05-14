@@ -26,10 +26,14 @@ class PedsFullNoiseHistosUsingDb : public CommissioningHistosUsingDb, public Ped
     // parameters
     float highThreshold_; // higher threshold for the zero suppression
     float lowThreshold_;  // lower threshold for the zero suppression
+    uint32_t pedshift_;   // shift for reference value
     bool  disableBadStrips_; // to disable bad strips flagged by the analysis in the upload
     bool  keepStripsDisabled_; // keep bad strips from previous runs as bad
     bool  skipEmptyStrips_;  // skip empty strips i.e. don't flag as bad
     bool  uploadOnlyStripBadChannelBit_;
+
+    edm::FileInPath APVBaselineShiftForUpload_;
+    std::vector<APVPedestalShift> listAPVBaselineShift_;
 
     // Perform a selective upload either for or excluding a certain set of FEDs                                                                                                                
     bool allowSelectiveUpload_;

@@ -370,7 +370,6 @@ void SiStripCommissioningOfflineClient::beginRun( const edm::Run& run, const edm
   edm::LogVerbatim(mlDqmClient_)
     << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
     << " Finished analyzing root file(s)...";
-  
 }
   
 // -----------------------------------------------------------------------------

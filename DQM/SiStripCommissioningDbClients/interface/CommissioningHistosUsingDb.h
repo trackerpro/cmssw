@@ -67,6 +67,52 @@ class CommissioningHistosUsingDb : public virtual CommissioningHistograms {
       pairs_(sistrip::invalid_) {;}
   };
   
+  class APVPedestalShift {
+  public:
+    
+    APVPedestalShift(){
+      fedId_ = 0;
+      fedCh_ = 0;
+      apvId_ = 0;
+      baseLineShift_ = 0;
+    };
+    
+     
+    APVPedestalShift(uint16_t fedId, uint16_t fedCh, uint16_t apvId):
+    fedId_(fedId),
+      fedCh_(fedCh),
+      apvId_(apvId){
+	baseLineShift_ = 0;
+      };
+    
+  APVPedestalShift(uint16_t fedId, uint16_t fedCh, uint16_t apvId, int baseLineShift):
+    fedId_(fedId),
+      fedCh_(fedCh),
+      apvId_(apvId),
+      baseLineShift_(baseLineShift){};
+    
+    bool operator < (const APVPedestalShift & j) const {
+      if(fedId_ > j.fedId_) return false;
+      else if(fedId_ < j.fedId_) return true;      
+      else if(fedId_ == j.fedId_ and fedCh_ > j.fedCh_) return false;
+      else if(fedId_ == j.fedId_ and fedCh_ < j.fedCh_) return true;      
+      else if(fedId_ == j.fedId_ and fedCh_ == j.fedCh_ and apvId_ > j.apvId_) return false;
+      else return true;
+      
+    }
+
+    bool operator == (const APVPedestalShift & j) const {
+      if(fedId_ == j.fedId_ and fedCh_ == j.fedCh_ and apvId_ == j.apvId_) return true;
+      else return false;
+    }
+
+    uint16_t fedId_;
+    uint16_t fedCh_;
+    uint16_t apvId_;
+    int      baseLineShift_;
+
+  };
+  
   std::pair<std::string,DetInfo> detInfo( const SiStripFecKey& );
   
   bool deviceIsPresent( const SiStripFecKey& );

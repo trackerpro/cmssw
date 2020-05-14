@@ -50,7 +50,7 @@ process.load("Geometry.TrackerNumberingBuilder.trackerNumberingGeometry_cfi")
 infilename = "file:"+inputPath+"/runRUNNUMBER/runRUNNUMBER.root"
     
 process.source = cms.Source("PoolSource",
-        fileNames = cms.untracked.vstring(infilename)
+        fileNames = cms.untracked.vstring(infilename),
         duplicateCheckMode = cms.untracked.string("noDuplicateCheck")                            
 )
 

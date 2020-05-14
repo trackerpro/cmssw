@@ -22,15 +22,20 @@ class PedestalsHistosUsingDb : public CommissioningHistosUsingDb, public Pedesta
   void update( SiStripConfigDb::FedDescriptionsRange );
 
   void create( SiStripConfigDb::AnalysisDescriptionsV&, Analysis ) override;
-
+  
   // parameters
   float highThreshold_;
   float lowThreshold_;
-  bool disableBadStrips_;
-  bool keepStripsDisabled_;
-  // Perform a selective upload either for or excluding a certain set of FEDs                                                                                                                          
-  bool allowSelectiveUpload_;
+  uint32_t pedshift_;
+  bool  disableBadStrips_;
+  bool  keepStripsDisabled_;
 
+  edm::FileInPath APVBaselineShiftForUpload_;
+  std::vector<APVPedestalShift> listAPVBaselineShift_;
+
+  // Perform a selective upload either for or excluding a certain set of FEDs                                                                                                                          
+  bool  allowSelectiveUpload_;
+  
 };
 
 #endif // DQM_SiStripCommissioningClients_PedestalsHistosUsingDb_H

@@ -55,6 +55,7 @@ process.db_client.CalibrationParameters.targetDecayTime    = cms.double(90);
 process.db_client.CalibrationParameters.tuneSimultaneously = cms.bool(True);
 
 process.db_client.PedestalsParameters.KeepStripsDisabled = cms.bool(True)
+#process.db_client.PddestalsParameters.APVBaselineShiftForUpload = cms.FileInPath()
 
 process.db_client.DaqScopeModeParameters.DisableBadStrips =  cms.bool(False)
 process.db_client.DaqScopeModeParameters.KeepStripsDisabled = cms.bool(True)
