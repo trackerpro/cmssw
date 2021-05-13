@@ -45,6 +45,43 @@ PedsFullNoiseHistosUsingDb::PedsFullNoiseHistosUsingDb(const edm::ParameterSet& 
       this->pset().existsAs<bool>("doSelectiveUpload") ? this->pset().getParameter<bool>("doSelectiveUpload") : false;
   LogTrace(mlDqmClient_) << "[PedestalsHistosUsingDb::" << __func__ << "]"
                          << " Selective upload of modules set to : " << allowSelectiveUpload_;
+
+  pedshift_ = this->pset().existsAs<bool>("doSelectiveUpload") ? this->pset().getParameter<int>("PedestalShift"): 127;
+  LogTrace(mlDqmClient_)
+    << "[PedestalsHistosUsingDb::" << __func__ << "]"
+    << " PedestalShift: " << pedshift_;
+
+
+  if(this->pset().existsAs<edm::FileInPath>("APVBaselineShiftForUpload")){
+    APVBaselineShiftForUpload_ = this->pset().getParameter<edm::FileInPath>("APVBaselineShiftForUpload");
+    LogTrace(mlDqmClient_)
+      << "[PedestalsHistosUsingDb::" << __func__ << "]"
+      << " Selective upload of modules set to : " << APVBaselineShiftForUpload_.fullPath();
+
+    std::ifstream inputFile (APVBaselineShiftForUpload_.fullPath());
+    if(inputFile.is_open()){
+      std::string line;
+      while(getline(inputFile,line)){
+	if(not line.empty()){
+	  std::istringstream line_ss(line);
+	  uint16_t fedId, fedCh, apvId;
+	  int  baselineShift;
+	  line_ss >> fedId >> fedCh >> apvId >> baselineShift;
+	  // Add to the list only if it does not exist yet .. avoid duplications                                                                                                                        
+	  auto element = APVPedestalShift(fedId,fedCh,apvId,baselineShift);
+	  if(std::find(listAPVBaselineShift_.begin(),listAPVBaselineShift_.end(),element) == listAPVBaselineShift_.end())
+	    listAPVBaselineShift_.push_back(APVPedestalShift(fedId,fedCh,apvId,baselineShift));
+	}
+      }
+    }
+    inputFile.close();
+    sort(listAPVBaselineShift_.begin(),listAPVBaselineShift_.end());
+    for(auto shift : listAPVBaselineShift_){
+      std::stringstream ss;
+      ss<<"Pedestal shifts --> fedId "<<shift.fedId_<<" fedCh "<<shift.fedCh_<<" apvId "<<shift.apvId_<<" shift "<<shift.baseLineShift_;
+      edm::LogWarning(mlDqmClient_) << ss.str();
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -119,15 +156,24 @@ void PedsFullNoiseHistosUsingDb::update(SiStripConfigDb::FedDescriptionsRange fe
         }
 
         // Determine the pedestal shift to apply --> this is standard in the pedestal paylaod to avoid loss of signal from common-mode subtraction
-        uint32_t pedshift = 127;
         for (uint16_t iapv = 0; iapv < sistrip::APVS_PER_FEDCH; iapv++) {
-          uint32_t pedmin = (uint32_t)anal->pedsMin()[iapv];
-          pedshift = pedmin < pedshift ? pedmin : pedshift;
-        }
 
-        // Iterate through APVs and strips
-        for (uint16_t iapv = 0; iapv < sistrip::APVS_PER_FEDCH; iapv++) {
-          for (uint16_t istr = 0; istr < anal->peds()[iapv].size(); istr++) {  // Loop on the pedestal for each APV
+          uint32_t pedmin = (uint32_t)anal->pedsMin()[iapv];
+	  uint32_t pedshift  = pedmin < pedshift_ ? pedmin : pedshift_;
+	  std::stringstream ss;
+	  if(not listAPVBaselineShift_.empty()){
+	    auto elem = *std::find(listAPVBaselineShift_.begin(),listAPVBaselineShift_.end(),APVPedestalShift((*ifed)->getFedId(),ichan,iapv));
+	    if(elem.baseLineShift_ < 0 and abs(elem.baseLineShift_) < pedshift)
+	      pedshift += elem.baseLineShift_;
+	    else if(elem.baseLineShift_ >= 0)
+	      pedshift += elem.baseLineShift_;
+	    ss << "FedId: "<<(*ifed)->getFedId()<<" Channel:" <<ichan<<" APV: " <<iapv<< " pedsMin: " << anal->pedsMin()[iapv] << " ped shift: " << elem.baseLineShift_ <<" pedshift "<<pedshift;
+	  }
+	  else
+	    ss << "FedId: "<<(*ifed)->getFedId()<<" Channel:" <<ichan<<" APV: " <<iapv<< " pedsMin: " << anal->pedsMin()[iapv] << " pedshift "<<pedshift;
+	  edm::LogWarning(mlDqmClient_) << ss.str();
+	  	  
+	  for (uint16_t istr = 0; istr < anal->peds()[iapv].size(); istr++) {  // Loop on the pedestal for each APV
 
             if (not uploadOnlyStripBadChannelBit_ and anal->peds()[iapv][istr] < 1.) {  //@@ ie, zero
               edm::LogWarning(mlDqmClient_)

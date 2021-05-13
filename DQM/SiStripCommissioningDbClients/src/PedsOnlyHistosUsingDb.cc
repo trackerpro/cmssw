@@ -20,6 +20,18 @@ PedsOnlyHistosUsingDb::PedsOnlyHistosUsingDb(const edm::ParameterSet& pset,
       PedsOnlyHistograms(pset.getParameter<edm::ParameterSet>("PedsOnlyParameters"), bei) {
   LogTrace(mlDqmClient_) << "[PedsOnlyHistosUsingDb::" << __func__ << "]"
                          << " Constructing object...";
+
+  highThreshold_ = this->pset().getParameter<double>("HighThreshold");
+  lowThreshold_ = this->pset().getParameter<double>("LowThreshold");
+  LogTrace(mlDqmClient_)
+    << "[PedestalsHistosUsingDb::" << __func__ << "]"
+    << " Set FED zero suppression high/low threshold to "
+    << highThreshold_ << "/" << lowThreshold_;
+
+  pedshift_ = this->pset().existsAs<bool>("doSelectiveUpload") ? this->pset().getParameter<int>("PedestalShift"): 127;
+  LogTrace(mlDqmClient_)
+    << "[PedestalsHistosUsingDb::" << __func__ << "]"
+    << " PedestalShift: " << pedshift_;
 }
 
 // -----------------------------------------------------------------------------
@@ -91,21 +103,15 @@ void PedsOnlyHistosUsingDb::update(SiStripConfigDb::FedDescriptionsRange feds) {
         }
 
         // Determine the pedestal shift to apply
-        uint32_t pedshift = 127;
         for (uint16_t iapv = 0; iapv < sistrip::APVS_PER_FEDCH; iapv++) {
           uint32_t pedmin = (uint32_t)anal->pedsMin()[iapv];
-          pedshift = pedmin < pedshift ? pedmin : pedshift;
-        }
+	  uint32_t pedshift  = pedmin < pedshift_ ? pedmin : pedshift_;
 
-        // Iterate through APVs and strips
-        for (uint16_t iapv = 0; iapv < sistrip::APVS_PER_FEDCH; iapv++) {
           for (uint16_t istr = 0; istr < anal->peds()[iapv].size(); istr++) {
-            constexpr float high_threshold = 5.;
-            constexpr float low_threshold = 2.;
             constexpr bool disable_strip = false;
             Fed9U::Fed9UStripDescription data(static_cast<uint32_t>(anal->peds()[iapv][istr] - pedshift),
-                                              high_threshold,
-                                              low_threshold,
+                                              highThreshold_,
+                                              lowThreshold_,
                                               anal->raw()[iapv][istr],  //@@ raw noise!
                                               disable_strip);
             Fed9U::Fed9UAddress addr(ichan, iapv, istr);

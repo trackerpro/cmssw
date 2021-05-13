@@ -17,6 +17,11 @@ public:
   void uploadConfigurations() override;
 
 private:
+
+  float highThreshold_; // higher threshold for the zero suppression                                                                                                                                  
+  float lowThreshold_;  // lower threshold for the zero suppression                                                                                                                                   
+  uint32_t pedshift_;
+
   void update(SiStripConfigDb::FedDescriptionsRange);
 
   void create(SiStripConfigDb::AnalysisDescriptionsV&, Analysis) override;

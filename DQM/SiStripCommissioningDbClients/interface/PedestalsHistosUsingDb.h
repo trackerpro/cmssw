@@ -24,8 +24,13 @@ private:
   // parameters
   float highThreshold_;
   float lowThreshold_;
+  uint32_t pedshift_;
   bool disableBadStrips_;
   bool keepStripsDisabled_;
+
+  edm::FileInPath APVBaselineShiftForUpload_;
+  std::vector<APVPedestalShift> listAPVBaselineShift_;
+
   // Perform a selective upload either for or excluding a certain set of FEDs
   bool allowSelectiveUpload_;
 };

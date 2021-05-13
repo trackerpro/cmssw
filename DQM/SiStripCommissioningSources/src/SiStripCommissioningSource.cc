@@ -80,7 +80,7 @@ SiStripCommissioningSource::SiStripCommissioningSource(const edm::ParameterSet& 
   digiVirginRawToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "VirginRaw"));
   digiFineDelaySelectionToken_ =
       mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "FineDelaySelection"));
-  digiReorderedToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "Reordered"));
+  digiReorderedToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "SpyReordered"));
   /////////////////
   if (not isSpy_)
     digiScopeModeToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "ScopeMode"));
@@ -326,9 +326,26 @@ void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::Eve
   if (!tasksExist_) {
     createTask(summary.product(), setup);
   } else {
-    for (auto& v : tasks_) {
-      for (auto& t : v) {
-        t->eventSetup(&setup);
+    
+    if(task_ == sistrip::FINE_DELAY){
+      if(tasks_[0][0])
+	tasks_[0][0]->eventSetup(&setup);
+    }
+    else if (task_ == sistrip::APV_LATENCY) {                                                                                                                                                         
+      for (uint16_t partition = 0; partition < 4; ++partition) 
+	if(tasks_[0][partition])
+	  tasks_[0][partition]->eventSetup(&setup);
+    }
+    else{
+      // Iterate through FED ids and channels                                                                                                                                                        
+      for (auto ifed = fedCabling_->fedIds().begin() ; ifed != fedCabling_->fedIds().end(); ++ifed ) {
+	// Iterate through connected FED channels                                                                                                                                               
+	auto conns = fedCabling_->fedConnections(*ifed);
+	for (auto iconn = conns.begin() ; iconn != conns.end(); ++iconn ) {
+	  if ( !iconn->isConnected() ) { continue; }
+	  if(tasks_[iconn->fedId()][iconn->fedCh()])
+	    tasks_[iconn->fedId()][iconn->fedCh()]->eventSetup(&setup);
+	}
       }
     }
   }
@@ -406,16 +423,16 @@ void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::Eve
   }
 
   if (!cablingTask_) {
-    fillHistos(summary.product(), *raw, *rawAlt, *cluster);
+    fillHistos(summary.product(), raw.product(), rawAlt.product(), cluster.product());
   } else {
-    fillCablingHistos(summary.product(), *raw);
+    fillCablingHistos(summary.product(), raw.product());
   }
 }
 
 // ----------------------------------------------------------------------------
 //
 void SiStripCommissioningSource::fillCablingHistos(const SiStripEventSummary* const summary,
-                                                   const edm::DetSetVector<SiStripRawDigi>& raw) {
+                                                   const edm::DetSetVector<SiStripRawDigi> * raw) {
   // Create FEC key using DCU id and LLD channel from SiStripEventSummary
   const SiStripModule& module = fecCabling_->module(summary->dcuId());
   uint16_t lld_channel = (summary->deviceId() & 0x3) + 1;
@@ -464,8 +481,8 @@ void SiStripCommissioningSource::fillCablingHistos(const SiStripEventSummary* co
       // Retrieve digis for given FED key
       uint32_t fed_key = ((*ifed & sistrip::invalid_) << 16) | (ichan & sistrip::invalid_);
 
-      std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digis = raw.find(fed_key);
-      if (digis != raw.end()) {
+      std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digis = raw->find(fed_key);
+      if (digis != raw->end()) {
         if (digis->data.empty()) {
           continue;
         }
@@ -567,9 +584,9 @@ void SiStripCommissioningSource::fillCablingHistos(const SiStripEventSummary* co
 // ----------------------------------------------------------------------------
 //
 void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const summary,
-                                            const edm::DetSetVector<SiStripRawDigi>& raw,
-                                            const edm::DetSetVector<SiStripRawDigi>& rawAlt,
-                                            const edmNew::DetSetVector<SiStripCluster>& clusters) {
+                                            const edm::DetSetVector<SiStripRawDigi> * raw,
+                                            const edm::DetSetVector<SiStripRawDigi> * rawAlt,
+                                            const edmNew::DetSetVector<SiStripCluster> * clusters) {
   // Iterate through FED ids and channels
   std::vector<uint16_t> stripOnClusters;
   auto ifed = fedCabling_->fedIds().begin();
@@ -589,20 +606,20 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
       // beware that changes here must match changes in raw2digi and in SiStripFineDelayHit
       uint32_t fed_key = ((iconn->fedId() & sistrip::invalid_) << 16) | (iconn->fedCh() & sistrip::invalid_);
       // Retrieve digis for given FED key and check if found
-      std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digis = raw.find(fed_key);
+      std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digis = raw->find(fed_key);
 
       // only for spy data-taking --> tick measurement
       std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digisAlt;
-      if (not rawAlt.empty()) {
-        digisAlt = rawAlt.find(fed_key);
-        if (digisAlt == rawAlt.end())
+      if (rawAlt and not rawAlt->empty()) {
+        digisAlt = rawAlt->find(fed_key);
+        if (digisAlt == rawAlt->end())
           continue;
       }
 
       // find the strips belonging to the clusters connected to this APV pair
       stripOnClusters.clear();
-      if (not clusters.empty()) {
-        for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter = clusters.begin(); DSViter != clusters.end();
+      if (clusters and not clusters->empty()) {
+        for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter = clusters->begin(); DSViter != clusters->end();
              DSViter++) {
           if (DSViter->id() != iconn->detId())
             continue;  // select clusters on this module
@@ -618,7 +635,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
         }
       }
 
-      if (digis != raw.end()) {
+      if (digis != raw->end()) {
         // tasks involving tracking have partition-level histos, so treat separately
         if (task_ == sistrip::APV_LATENCY) {
           if (tasks_[0][iconn->fecCrate() - 1]) {
@@ -641,7 +658,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
           }
         } else {
           if (tasks_[iconn->fedId()][iconn->fedCh()]) {
-            if (not rawAlt.empty() or digisAlt == rawAlt.end())
+            if (not rawAlt or rawAlt->empty() or digisAlt == rawAlt->end())
               tasks_[iconn->fedId()][iconn->fedCh()]->fillHistograms(*summary, *digis);
             else {  // for spy-data
               if (stripOnClusters.empty())
