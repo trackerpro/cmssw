@@ -135,6 +135,7 @@ uint32_t CommissioningHistograms::runNumber(DQMStore* const bei, const std::vect
           LogTrace(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
                                  << " Found string \"" << title.substr(pos, std::string::npos) << "\" with value \""
                                  << value << "\"";
+	  /*
           if (!(bei->get(client_dir + "/" + title.substr(pos, std::string::npos)))) {
             bei->setCurrentFolder(client_dir);
             bei->bookString(title.substr(pos, std::string::npos), value);
@@ -142,6 +143,7 @@ uint32_t CommissioningHistograms::runNumber(DQMStore* const bei, const std::vect
                                    << " Booked string \"" << title.substr(pos, std::string::npos)
                                    << "\" in directory \"" << client_dir << "\"";
           }
+	  */
           uint32_t run;
           std::stringstream ss;
           ss << value;
@@ -209,6 +211,7 @@ sistrip::RunType CommissioningHistograms::runType(DQMStore* const bei, const std
           LogTrace(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
                                  << " Found string \"" << title.substr(pos, std::string::npos) << "\" with value \""
                                  << value << "\"";
+	  /*
           if (!(bei->get(client_dir + sistrip::dir_ + title.substr(pos, std::string::npos)))) {
             bei->setCurrentFolder(client_dir);
             bei->bookString(title.substr(pos, std::string::npos), value);
@@ -216,6 +219,7 @@ sistrip::RunType CommissioningHistograms::runType(DQMStore* const bei, const std
                                    << " Booked string \"" << title.substr(pos, std::string::npos)
                                    << "\" in directory \"" << client_dir << "\"";
           }
+	  */
           return SiStripEnumsAndStrings::runType(value);
         }
       }
@@ -276,6 +280,7 @@ void CommissioningHistograms::copyCustomInformation(DQMStore* const bei, const s
             edm::LogVerbatim(mlDqmClient_)
                 << "[CommissioningHistograms::" << __func__ << "]"
                 << " Found \"" << title.substr(pos, std::string::npos) << "\" with value \"" << value << "\"";
+	    /*
             if (!(bei->get(client_dir + "/" + title.substr(pos, std::string::npos)))) {
               bei->setCurrentFolder(client_dir);
               bei->bookInt(title.substr(pos, std::string::npos))->Fill(value);
@@ -283,6 +288,7 @@ void CommissioningHistograms::copyCustomInformation(DQMStore* const bei, const s
                   << "[CommissioningHistograms::" << __func__ << "]"
                   << " Booked \"" << title.substr(pos, std::string::npos) << "\" in directory \"" << client_dir << "\"";
             }
+	    */
           }
         }
       }
@@ -295,9 +301,10 @@ void CommissioningHistograms::copyCustomInformation(DQMStore* const bei, const s
 
 /** */
 void CommissioningHistograms::extractHistograms(const std::vector<std::string>& contents) {
+
   LogTrace(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
                          << " Extracting available histograms...";
-
+  
   // Check pointer
   if (!bei_) {
     edm::LogError(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
@@ -315,14 +322,14 @@ void CommissioningHistograms::extractHistograms(const std::vector<std::string>& 
   // Iterate through list of histograms
   std::vector<std::string>::const_iterator idir;
   for (idir = contents.begin(); idir != contents.end(); idir++) {
-    // Ignore "DQM source" directories if looking in client file
-    if (idir->find(sistrip::collate_) == std::string::npos) {
-      continue;
-    }
+    //Ignore "DQM source" directories if looking in client file
+    //if (idir->find(sistrip::collate_) == std::string::npos) {
+    //continue;
+    //}
 
     // Extract source directory path
     std::string source_dir = idir->substr(0, idir->find(":"));
-
+    
     // Extract view and create key
     sistrip::View view = SiStripEnumsAndStrings::view(source_dir);
     SiStripKey path;
@@ -434,19 +441,23 @@ void CommissioningHistograms::extractHistograms(const std::vector<std::string>& 
         histos_[key].push_back(new Histo());
         histo = histos_[key].back();
         histo->title_ = (*ime)->getName();
-
+	
         // If histogram present in client directory, add to map
         if (source_dir.find(sistrip::collate_) != std::string::npos) {
           histo->me_ = bei_->get(client_dir + "/" + (*ime)->getName());
-          if (!histo->me_) {
-            edm::LogError(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
-                                        << " NULL pointer to MonitorElement!";
-          }
-        }
+	}
+	else{
+	  histo->me_ = bei_->get(source_dir + "/" + (*ime)->getName());
+	}
+	
+	if (!histo->me_) {
+	  edm::LogError(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
+				      << " NULL pointer to MonitorElement!";
+	}
       }
     }
   }
-
+  
   //printHistosMap();
 
   edm::LogVerbatim(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
@@ -646,7 +657,8 @@ void CommissioningHistograms::save(std::string& path, uint32_t run_number, std::
                          << " Saving histograms to root file"
                          << " (This may take some time!)";
   path = ss.str();
-  bei_->save(path, sistrip::collate_);
+  std::string stringToAppend = Form("%s/%s",sistrip::dqmRoot_,sistrip::collate_);  
+  bei_->save(path, "",stringToAppend,sistrip::dqmRoot_);
   edm::LogVerbatim(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
                                  << " Saved histograms to root file \"" << ss.str() << "\"!";
 }
@@ -662,7 +674,7 @@ TH1* CommissioningHistograms::histogram(const sistrip::Monitorable& mon,
                                         const float& xhigh) {
   // Remember pwd
   std::string pwd = bei_->pwd();
-  bei_->setCurrentFolder(std::string(sistrip::collate_) + sistrip::dir_ + directory);
+  bei_->setCurrentFolder(sistrip::dir_ + directory);
 
   // Construct histogram name
   std::string name = SummaryGenerator::name(task_, mon, pres, view, directory);

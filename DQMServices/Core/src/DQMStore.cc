@@ -758,10 +758,10 @@ namespace dqm::implementation {
 
   DQMStore::~DQMStore() {}
 
-  void DQMStore::save(std::string const& filename, std::string const& path) {
+  void DQMStore::save(std::string const& filename, std::string const& path, std::string const& stringToAppend, std::string const& stringToDelete) {
     LegacyIOHelper h(this);
-    // no run number passed, will save a flat ROOT file (rather than 'Run xxxxxx/.../Run Summary/...')
-    h.save(filename, path);
+    // no run number passed, will save a flat ROOT file  postfix/XXX 
+    h.save(filename, path, stringToAppend, stringToDelete);
   }
 
   bool DQMStore::open(std::string const& filename,

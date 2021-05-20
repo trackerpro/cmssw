@@ -550,7 +550,7 @@ namespace dqm {
       // ------------------------------------------------------------------------
       // ---------------------- public I/O --------------------------------------
       DQM_DEPRECATED
-      void save(std::string const& filename, std::string const& path = "");
+	void save(std::string const& filename, std::string const& path = "", std::string const & stringToAppend = "", std::string const & stringToDelete = "");
       DQM_DEPRECATED
       bool open(std::string const& filename,
                 bool overwrite = false,

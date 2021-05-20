@@ -10,11 +10,14 @@
 #include "TFile.h"
 #include <sys/stat.h>
 
-void LegacyIOHelper::save(std::string const &filename,
-                          std::string const &path /* = "" */,
+void LegacyIOHelper::save(std::string const & filename,
+                          std::string const & path /* = "" */,
+                          std::string const & stringToAppend /* = "" */,
+                          std::string const & stringToDelete  /* = "" */,
                           uint32_t const run /* = 0 */,
                           bool saveall /* = true */,
-                          std::string const &fileupdate /* = "RECREATE" */) {
+                          std::string const &fileupdate /* = "RECREATE" */,
+			  std::string const &postfix /*=""*/) {
   // TFile flushes to disk with fsync() on every TDirectory written to
   // the file.  This makes DQM file saving painfully slow, and
   // ironically makes it _more_ likely the file saving gets
@@ -52,12 +55,22 @@ void LegacyIOHelper::save(std::string const &filename,
     if (firstSlashPos == std::string::npos) {
       firstSlashPos = dirName.length();
     }
-
+    
     if (run) {
       // Rewrite paths to "Run Summary" format when given a run number.
       // Else, write a simple, flat TDirectory for local usage.
       dirName = dirName.substr(0, firstSlashPos) + "/Run summary" + dirName.substr(firstSlashPos, dirName.size());
       dirName = "DQMData/Run " + std::to_string(run) + "/" + dirName;
+    }
+    else{
+      if(not stringToDelete.empty()){
+	size_t start_position_to_erase = dirName.find(stringToDelete);
+	if(start_position_to_erase != std::string::npos)
+	   dirName.erase(start_position_to_erase,stringToDelete.size());
+      }
+      if(not stringToAppend.empty()){
+	dirName = stringToAppend+"/"+dirName;
+      }
     }
 
     std::string objectName = me->getName();

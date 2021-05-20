@@ -1,4 +1,3 @@
-
 #include "DQM/SiStripCommissioningClients/interface/SiStripCommissioningOfflineClient.h"
 #include "DataFormats/SiStripCommon/interface/SiStripEnumsAndStrings.h"
 #include "DataFormats/SiStripCommon/interface/SiStripHistoTitle.h"
@@ -19,6 +18,9 @@
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
+#include "classlib/utils/RegexpMatch.h"
+#include "classlib/utils/Regexp.h"
+#include "classlib/utils/StringOps.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -27,6 +29,7 @@
 #include <dirent.h>
 #include <cerrno>
 #include "TProfile.h"
+#include "TKey.h"
 #include <cstdint>
 
 using namespace sistrip;
@@ -36,7 +39,6 @@ using namespace sistrip;
 SiStripCommissioningOfflineClient::SiStripCommissioningOfflineClient(const edm::ParameterSet& pset)
     : bei_(edm::Service<DQMStore>().operator->()),
       histos_(nullptr),
-      //inputFiles_( pset.getUntrackedParameter< std::vector<std::string> >( "InputRootFiles", std::vector<std::string>() ) ),
       outputFileName_(pset.getUntrackedParameter<std::string>("OutputRootFile", "")),
       collateHistos_(!pset.getUntrackedParameter<bool>("UseClientFile", false)),
       analyzeHistos_(pset.getUntrackedParameter<bool>("AnalyzeHistos", true)),
@@ -70,6 +72,7 @@ SiStripCommissioningOfflineClient::~SiStripCommissioningOfflineClient() {
 // -----------------------------------------------------------------------------
 //
 void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm::EventSetup& setup) {
+
   LogTrace(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                          << " Analyzing root file(s)...";
 
@@ -90,7 +93,8 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
       edm::LogError(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                   << " The input root file \"" << *ifile << "\" could not be opened!"
                                   << " Please check the path and filename!";
-    } else {
+    } 
+    else {
       root_file.close();
       std::string::size_type found = ifile->find(sistrip::dqmClientFileName_);
       if (found != std::string::npos && clientHistos_) {
@@ -111,6 +115,7 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
       }
     }
   }
+
   if (clientHistos_ && inputFiles_.size() == 1) {
     edm::LogVerbatim(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                    << " Collated histograms found in input root file \"" << inputFiles_[0] << "\"";
@@ -141,14 +146,15 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
 
   edm::LogVerbatim(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                  << " Opening root files. This may take some time!...";
+
   std::vector<std::string>::const_iterator jfile = inputFiles_.begin();
   for (; jfile != inputFiles_.end(); jfile++) {
     LogTrace(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                            << " Opening root file \"" << *jfile << "\"... (This may take some time.)";
-    if (clientHistos_) {
-      bei_->open(*jfile, false, sistrip::collate_, "");
+    if (clientHistos_) { //
+      openDQMStore(*jfile,std::string(sistrip::dqmRoot_)+"/"+std::string(sistrip::collate_));
     } else {
-      bei_->open(*jfile, false, "SiStrip", sistrip::collate_);
+      openDQMStore(*jfile,std::string(sistrip::dqmRoot_)+"/SiStrip");
     }
     LogTrace(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                            << " Opened root file \"" << *jfile << "\"!";
@@ -156,24 +162,42 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
   edm::LogVerbatim(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                  << " Opened " << inputFiles_.size() << " root files!";
 
+
   // Retrieve list of histograms
   auto allmes = bei_->getAllContents("");
-  std::vector<std::string> contents;
+  std::vector<std::string> contents_original;
+  for(auto const & me : allmes) {
+    contents_original.push_back(me->getFullname());
+  }
 
-  // If using client file, remove "source" histograms from list
-  if (clientHistos_) {
-    std::set<std::string> temp;
-    for (auto me : allmes) {
-      const auto& name = me->getPathname();
-      if (name.find(sistrip::collate_) != std::string::npos) {
-        temp.insert(name);
+  // Adjust the naming covention to obey to the expect nomenclature for CMSSW < 11_0_X
+  std::vector<std::string> contents;
+  for(auto const & me : contents_original) {
+    size_t pos = me.find_last_of("/");
+    if(pos != std::string::npos){
+      std::string path = me.substr(0,pos);
+      TString path_tmp (path);
+      if(std::find(contents.begin(),contents.end(),path) == contents.end()){
+	contents.push_back(path+":"+me.substr(pos+1,std::string::npos));
+      }
+      else{
+	contents.push_back(","+me.substr(pos+1,std::string::npos));
+      }      
+    }
+  }
+  contents_original.clear();
+
+  // If using client file, remove "source" histograms from list                                                                                                                                       
+  if ( clientHistos_ ) {
+    std::vector<std::string> temp;
+    std::vector<std::string>::iterator istr = contents.begin();
+    for ( ; istr != contents.end(); istr++ ) {
+      if ( istr->find(sistrip::collate_) != std::string::npos ) {
+        temp.push_back( *istr );
       }
     }
     contents.clear();
-    for (const auto& s : temp) {
-      // the old code expects a ":", but does not really need the ME names
-      contents.push_back(s + ":");
-    }
+    contents = temp;
   }
 
   // Some debug
@@ -284,7 +308,7 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
     edm::LogWarning(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                   << " No histogram analysis performed!";
   }
-
+  
   // Create summary plots
   if (createSummaryPlots_) {
     edm::LogVerbatim(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
@@ -476,4 +500,182 @@ void SiStripCommissioningOfflineClient::setInputFiles(std::vector<std::string>& 
     edm::LogError(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                                 << " No input files found!";
   }
+}
+
+
+bool SiStripCommissioningOfflineClient::openDQMStore(std::string const& filename,
+						     std::string const& motherdir /* ="" */,
+						     const bool & fileMustExist /* =true */) {
+
+  std::unique_ptr<TFile> f;
+  try {
+    f.reset(TFile::Open(filename.c_str()));
+    if (!f.get() || f->IsZombie()){
+      std::stringstream ss;
+      ss << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
+	 << " Failed to open file "<< filename;
+    }
+  } 
+  catch (std::exception&) {
+    if (fileMustExist)
+      throw;
+    else 
+      return false;
+  }
+  readDQMStoreDirectory(f.get(),motherdir);
+  f->Close();
+  return true;
+}
+
+int SiStripCommissioningOfflineClient::readDQMStoreDirectory(TFile* file,
+							     std::string const & curdir){
+  
+  unsigned int ntot = 0;
+  unsigned int count = 0;
+
+  // enter in the current directory
+  file->cd(curdir.c_str());
+  
+  TKey* key;
+  TIter next(gDirectory->GetListOfKeys());
+  std::vector<TObject*> delayed;
+  std::vector<std::string> delayedPath;
+
+  while ((key = (TKey*) next())) {
+    std::unique_ptr<TObject> obj(key->ReadObj());
+    if (dynamic_cast<TDirectory*>(obj.get())) {
+      std::string nextdir = curdir;
+      nextdir  += "/" + std::string(obj->GetName());
+      ntot += readDQMStoreDirectory(file,nextdir);
+    } 
+    else if (dynamic_cast<TObjString*>(obj.get())){
+      delayed.push_back(obj.release());
+      delayedPath.push_back(curdir);
+    }
+    else {
+      if (extractDQMStoreObject(obj.get(), curdir))
+	++count;
+    }
+  }
+  
+  
+  if(!delayed.empty()){
+    size_t ipos = 0;
+    for(auto & element : delayed){      
+      if (extractDQMStoreObject(element, delayedPath.at(ipos)))
+	++count;
+      ipos++;
+    }
+    for(auto & element : delayed){
+      delete element;
+    }
+    delayed.clear();
+    delayedPath.clear();
+  }
+
+  return ntot + count;
+}
+
+
+bool SiStripCommissioningOfflineClient::extractDQMStoreObject(TObject* obj, std::string const& dir) {
+
+  MonitorElementData::Path path; 
+  std::string fullpath = dir + "/" + std::string(obj->GetName());
+  path.set(fullpath, MonitorElementData::Path::Type::DIR_AND_NAME);
+  MonitorElement* me = bei_->findME(path);
+
+  if (auto* h = dynamic_cast<TProfile*>(obj)) {
+    if (!me) me = bei_->bookProfile(fullpath,(TProfile*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TProfile2D*>(obj)) {
+    if (!me) me = bei_->bookProfile2D(fullpath, (TProfile2D*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH1F*>(obj)) {
+    if (!me) me = bei_->book1D(fullpath, (TH1F*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH1S*>(obj)) {
+    if (!me) me =  bei_->book1S(fullpath, (TH1S*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH1D*>(obj)) {
+    if (!me) me =  bei_->book1DD(fullpath, (TH1D*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH2F*>(obj)) {
+    if (!me) me = bei_->book2D(fullpath, (TH2F*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH2S*>(obj)) {
+    if (!me) me = bei_->book2S(fullpath, (TH2S*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH2D*>(obj)) {
+    if (!me) me = bei_->book2DD(fullpath, (TH2D*)h->Clone());
+  } 
+  else if (auto* h = dynamic_cast<TH3F*>(obj)) {
+    if (!me) me = bei_->book3D(fullpath, (TH3F*)h->Clone());
+  }
+  else if (dynamic_cast<TObjString*>(obj)) {
+    lat::RegexpMatch m;
+    lat::Regexp const s_rxmeval{"^<(.*)>(i|f|s|e|t|qr)=(.*)</\\1>$"};
+    if (!s_rxmeval.match(obj->GetName(), 0, 0, &m)) {
+      if (strstr(obj->GetName(), "CMSSW")) {
+	return true;
+      } else if (strstr(obj->GetName(), "DQMPATCH")) {
+	return true;
+      } else {
+	edm::LogWarning(mlDqmClient_) << "*** DQMStore: WARNING: cannot extract object '" << obj->GetName() << "' of type '"
+				      << obj->IsA()->GetName() << "'\n";
+	return false;
+      }
+    }
+    
+    std::string label = m.matchString(obj->GetName(), 1);
+    std::string kind  = m.matchString(obj->GetName(), 2);
+    std::string value = m.matchString(obj->GetName(), 3);
+
+    if (kind == "i") {
+      if (!me) me = bei_->bookInt(dir+"/"+label);
+      me->Fill(atoll(value.c_str()));
+    }
+    else if (kind == "f") {
+      if (!me) me = bei_->bookFloat(dir+"/"+label);
+      me->Fill(atof(value.c_str()));
+    }
+    else if (kind == "s") {
+      if (!me) me = bei_->bookString(dir+"/"+label, value);
+      me->Fill(value);
+    } 
+    else if (kind == "e") {
+      if (!me) {
+	edm::LogWarning(mlDqmClient_) << "*** DQMStore: WARNING: no monitor element '" << label << "' in directory '" << dir
+				      << "' to be marked as efficiency plot.\n";
+	return false;
+      }
+      me->setEfficiencyFlag();
+    } 
+    else {
+      edm::LogWarning(mlDqmClient_) << "*** DQMStore: WARNING: cannot extract object '" << obj->GetName() << "' of type '"
+				    << obj->IsA()->GetName() << "'\n";
+      return false;
+    }
+  } 
+  else if (auto* n = dynamic_cast<TNamed*>(obj)) {
+    // For old DQM data.
+    std::string s;
+    s.reserve(6 + strlen(n->GetTitle()) + 2 * strlen(n->GetName()));
+    s += '<';
+    s += n->GetName();
+    s += '>';
+    s += n->GetTitle();
+    s += '<';
+    s += '/';
+    s += n->GetName();
+    s += '>';
+    TObjString os(s.c_str());
+    return extractDQMStoreObject(&os, dir);
+  } 
+  else {
+    edm::LogWarning(mlDqmClient_) << "*** DQMStore: WARNING: cannot extract object '" << obj->GetName() << "' of type '"
+				  << obj->IsA()->GetName() << "' and with title '" << obj->GetTitle() << "'\n";
+    return false;
+  }
+
+  return true;
 }

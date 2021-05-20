@@ -1,4 +1,3 @@
-
 #ifndef DQM_SiStripCommissioningClients_SiStripCommissioningOfflineClient_H
 #define DQM_SiStripCommissioningClients_SiStripCommissioningOfflineClient_H
 
@@ -37,6 +36,10 @@ public:
   void beginRun(const edm::Run&, const edm::EventSetup&) override;
   void analyze(const edm::Event&, const edm::EventSetup&) override;
   void endJob() override;
+
+  bool openDQMStore(std::string const&, std::string const&, const bool & = true);
+  int readDQMStoreDirectory(TFile* , std::string const&);
+  bool extractDQMStoreObject(TObject*, std::string const&);
 
 protected:
   virtual void createHistos(const edm::ParameterSet&, const edm::EventSetup&);

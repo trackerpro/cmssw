@@ -97,8 +97,8 @@ private:  // ---------- Private methods ----------
 
   /** */
   edm::ESGetToken<SiStripFedCabling, SiStripFedCablingRcd> fedCablingToken_;
-  SiStripFedCabling* fedCabling_;
-
+  const SiStripFedCabling* fedCabling_;
+  
   /** */
   SiStripFecCabling* fecCabling_;
 

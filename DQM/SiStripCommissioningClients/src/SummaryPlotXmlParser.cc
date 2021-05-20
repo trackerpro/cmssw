@@ -54,7 +54,7 @@ void SummaryPlotXmlParser::parseXML(const std::string& filename) {
       for (auto& runtype : xml.second) {
         if (runtype.first == runTypeTag_) {  // enter in the run type
           sistrip::RunType run_type =
-              SiStripEnumsAndStrings::runType(runtype.second.get<std::string>("<xmlattr>." + runTypeAttr_));
+	    SiStripEnumsAndStrings::runType(runtype.second.get<std::string>("<xmlattr>." + runTypeAttr_));
           for (auto& sumplot : runtype.second) {
             if (sumplot.first == summaryPlotTag_) {
               std::string mon = sumplot.second.get<std::string>("<xmlattr>." + monitorableAttr_);
@@ -65,6 +65,7 @@ void SummaryPlotXmlParser::parseXML(const std::string& filename) {
               plots_[run_type].push_back(plot);
             }
           }
+	  
           if (plots_[run_type].empty()) {
             std::stringstream ss;
             ss << "[SummaryPlotXmlParser::" << __func__ << "]"
@@ -73,6 +74,7 @@ void SummaryPlotXmlParser::parseXML(const std::string& filename) {
             throw(std::runtime_error(ss.str()));
             return;
           }
+	  
         } else {
           std::stringstream ss;
           ss << "[SummaryPlotXmlParser::" << __func__ << "]"

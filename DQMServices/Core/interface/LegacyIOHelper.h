@@ -28,9 +28,12 @@ public:
   // and JOB) are saved.
   void save(std::string const& filename,
             std::string const& path = "",
+            std::string const& stringToAppend = "",
+            std::string const& stringToDelete = "",
             uint32_t const run = 0,
             bool saveall = true,
-            std::string const& fileupdate = "RECREATE");
+            std::string const& fileupdate = "RECREATE",
+	    std::string const& postfix = "");
 
 private:
   bool createDirectoryIfNeededAndCd(const std::string& path);

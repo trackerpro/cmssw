@@ -76,18 +76,17 @@ SiStripCommissioningSource::SiStripCommissioningSource(const edm::ParameterSet& 
       base_(""),
       view_(pset.getUntrackedParameter<std::string>("View", "Default")),
       parameters_(pset) {
+  
   inputModuleSummaryToken_ = consumes<SiStripEventSummary>(edm::InputTag(inputModuleLabelSummary_));
-  digiVirginRawToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "VirginRaw"));
-  digiFineDelaySelectionToken_ =
-      mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "FineDelaySelection"));
+  digiVirginRawToken_      = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "VirginRaw"));
+  digiFineDelaySelectionToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "FineDelaySelection"));
   digiReorderedToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "SpyReordered"));
   /////////////////
   if (not isSpy_)
     digiScopeModeToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabel_, "ScopeMode"));
   else {
-    digiScopeModeToken_ =
-        mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabelAlt_, "ScopeRawDigis"));
-    clustersToken_ = mayConsume<edmNew::DetSetVector<SiStripCluster> >(edm::InputTag(inputClusterLabel_));
+    digiScopeModeToken_ = mayConsume<edm::DetSetVector<SiStripRawDigi> >(edm::InputTag(inputModuleLabelAlt_, "ScopeRawDigis"));
+    clustersToken_      = mayConsume<edmNew::DetSetVector<SiStripCluster> >(edm::InputTag(inputClusterLabel_));
   }
   /////////////////
   LogTrace(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
@@ -150,13 +149,22 @@ void SiStripCommissioningSource::beginRun(edm::Run const& run, const edm::EventS
   base_ = dir.str();
 
   // ---------- FED and FEC cabling ----------
-
   const auto& fed_cabling = setup.getData(fedCablingToken_);
   fedCabling_ = const_cast<SiStripFedCabling*>(&fed_cabling);
   LogDebug(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
                          << "Initialized FED cabling. Number of FEDs is " << fedCabling_->fedIds().size();
-  fecCabling_ = new SiStripFecCabling(fed_cabling);
-  if (fecCabling_->crates().empty()) {
+
+  if (fedCabling_->fedIds().empty()){
+    std::stringstream ss;
+    ss << "[SiStripCommissioningSource::" << __func__ << "]"
+       << " Empty std::vector returned by FED cabling object!"
+       << " Check if database connection failed...";
+    edm::LogWarning(mlDqmSource_) << ss.str();
+  }
+
+  fecCabling_ = new SiStripFecCabling(*fedCabling_);
+
+  if (fecCabling_->crates().empty()){
     std::stringstream ss;
     ss << "[SiStripCommissioningSource::" << __func__ << "]"
        << " Empty std::vector returned by FEC cabling object!"
@@ -179,6 +187,7 @@ void SiStripCommissioningSource::beginRun(edm::Run const& run, const edm::EventS
 // -----------------------------------------------------------------------------
 //
 void SiStripCommissioningSource::endJob() {
+
   LogTrace(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
                          << " Halting..." << std::endl;
 
@@ -252,7 +261,7 @@ void SiStripCommissioningSource::endJob() {
   // Save file with appropriate filename (if run number is known)
   if (!filename_.empty()) {
     if (run_ != 0) {
-      dqm()->save(ss.str());
+      dqm()->save(ss.str(),"",sistrip::dqmRoot_);
     } else {
       edm::LogWarning(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
                                     << " NULL value for RunNumber! No root file saved!";
@@ -265,13 +274,6 @@ void SiStripCommissioningSource::endJob() {
   LogTrace(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
                          << " Saved all histograms to file \"" << ss.str() << "\"";
 
-  // ---------- Delete histograms ----------
-  // Remove all MonitorElements in "SiStrip" dir and below
-  // remove();
-
-  // Delete histogram objects
-  // clearCablingTasks();
-  // clearTasks();
 
   // ---------- Delete cabling ----------
   if (fedCabling_) {
@@ -288,20 +290,21 @@ void SiStripCommissioningSource::endJob() {
 void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::EventSetup& setup) {
   // Retrieve commissioning information from "event summary"
   edm::Handle<SiStripEventSummary> summary;
-  //  event.getByLabel( inputModuleLabelSummary_, summary );
   event.getByToken(inputModuleSummaryToken_, summary);
 
+  if(not summary.isValid()){
+    std::stringstream ss;
+    ss << "[SiStripCommissioningSource::" << __func__ << " summary product not valid]";
+    edm::LogWarning(mlDqmSource_) << ss.str();
+    return;
+  }
+
   // Check if EventSummary has info attached
-  if ((summary->runType() == sistrip::UNDEFINED_RUN_TYPE || summary->runType() == sistrip::UNKNOWN_RUN_TYPE) &&
-      summary->nullParams()) {
+  if ((summary->runType() == sistrip::UNDEFINED_RUN_TYPE or summary->runType() == sistrip::UNKNOWN_RUN_TYPE) and summary->nullParams()) {
     edm::LogWarning(mlDqmSource_) << "[SiStripCommissioningSource::" << __func__ << "]"
                                   << " Unknown/undefined RunType and NULL parameter values!"
                                   << " It may be that the 'trigger FED' object was not found!";
   }
-
-  // Check if need to rebuild FED/FEC cabling objects for connection run
-  //cablingForConnectionRun( summary->runType() ); //@@ do not use!
-
   // Extract run number and forward to client
   if (event.id().run() != run_) {
     run_ = event.id().run();
@@ -325,8 +328,8 @@ void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::Eve
   // Create commissioning task objects
   if (!tasksExist_) {
     createTask(summary.product(), setup);
-  } else {
-    
+  } 
+  else {    
     if(task_ == sistrip::FINE_DELAY){
       if(tasks_[0][0])
 	tasks_[0][0]->eventSetup(&setup);
@@ -356,8 +359,7 @@ void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::Eve
   edm::Handle<edmNew::DetSetVector<SiStripCluster> > cluster;
 
   if (task_ == sistrip::DAQ_SCOPE_MODE) {  // scop-mode runs
-    if (not isSpy_ and
-        summary->fedReadoutMode() == FED_VIRGIN_RAW) {  // if the readout is virgin raw just take the VR digis
+    if (not isSpy_ and summary->fedReadoutMode() == FED_VIRGIN_RAW) {  // if the readout is virgin raw just take the VR digis
       event.getByToken(digiVirginRawToken_, raw);
     } else if (not isSpy_ and summary->fedReadoutMode() == FED_SCOPE_MODE) {
       event.getByToken(digiScopeModeToken_, raw);
@@ -423,7 +425,15 @@ void SiStripCommissioningSource::analyze(const edm::Event& event, const edm::Eve
   }
 
   if (!cablingTask_) {
-    fillHistos(summary.product(), raw.product(), rawAlt.product(), cluster.product());
+    if(not rawAlt.isValid() and not cluster.isValid())
+      fillHistos(summary.product(), raw.product(),NULL,NULL);
+    else if(rawAlt.isValid() and not cluster.isValid())
+      fillHistos(summary.product(), raw.product(),rawAlt.product(),NULL);
+    else if(not rawAlt.isValid() and cluster.isValid())
+      fillHistos(summary.product(), raw.product(),NULL,cluster.product());
+    else{
+      fillHistos(summary.product(), raw.product(),rawAlt.product(),cluster.product());
+    }
   } else {
     fillCablingHistos(summary.product(), raw.product());
   }
@@ -591,6 +601,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
   std::vector<uint16_t> stripOnClusters;
   auto ifed = fedCabling_->fedIds().begin();
   for (; ifed != fedCabling_->fedIds().end(); ifed++) {
+
     // Iterate through connected FED channels
     auto conns = fedCabling_->fedConnections(*ifed);
     for (auto iconn = conns.begin(); iconn != conns.end(); iconn++) {
@@ -607,7 +618,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
       uint32_t fed_key = ((iconn->fedId() & sistrip::invalid_) << 16) | (iconn->fedCh() & sistrip::invalid_);
       // Retrieve digis for given FED key and check if found
       std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digis = raw->find(fed_key);
-
+      
       // only for spy data-taking --> tick measurement
       std::vector<edm::DetSet<SiStripRawDigi> >::const_iterator digisAlt;
       if (rawAlt and not rawAlt->empty()) {
@@ -619,12 +630,10 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
       // find the strips belonging to the clusters connected to this APV pair
       stripOnClusters.clear();
       if (clusters and not clusters->empty()) {
-        for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter = clusters->begin(); DSViter != clusters->end();
-             DSViter++) {
+        for (edmNew::DetSetVector<SiStripCluster>::const_iterator DSViter = clusters->begin(); DSViter != clusters->end(); DSViter++) {
           if (DSViter->id() != iconn->detId())
             continue;  // select clusters on this module
-          for (edmNew::DetSet<SiStripCluster>::const_iterator DSiter = DSViter->begin(); DSiter != DSViter->end();
-               DSiter++) {  // loop on the clusters
+          for (edmNew::DetSet<SiStripCluster>::const_iterator DSiter = DSViter->begin(); DSiter != DSViter->end(); DSiter++) {  // loop on the clusters
             if (DSiter->firstStrip() >= iconn->apvPairNumber() * 256 and
                 DSiter->firstStrip() < (1 + iconn->apvPairNumber()) * 256) {  // found the right APV
               for (size_t istrip = 0; istrip < DSiter->amplitudes().size(); istrip++) {
@@ -634,7 +643,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
           }
         }
       }
-
+      
       if (digis != raw->end()) {
         // tasks involving tracking have partition-level histos, so treat separately
         if (task_ == sistrip::APV_LATENCY) {
@@ -677,7 +686,7 @@ void SiStripCommissioningSource::fillHistos(const SiStripEventSummary* const sum
           }
         }
       } else {
-        // issue a warning only for standard runs, as latency and fine delay only deliver
+         // issue a warning only for standard runs, as latency and fine delay only deliver
         // pseudo zero-suppressed data
         if (task_ != sistrip::APV_LATENCY && task_ != sistrip::FINE_DELAY) {
           std::stringstream ss;
@@ -1146,60 +1155,3 @@ void SiStripCommissioningSource::directory(std::stringstream& dir, uint32_t run_
   dir << ip.str() << "_" << std::setw(5) << std::setfill('0') << pid;
 }
 
-// -----------------------------------------------------------------------------
-//
-// void SiStripCommissioningSource::cablingForConnectionRun( const sistrip::RunType& type ) {
-
-//   if ( type == sistrip::FED_CABLING ||
-//        type == sistrip::QUITE_FAST_CABLING ||
-//        type == sistrip::FAST_CABLING ) {
-//     std::stringstream ss;
-//     ss << "[SiStripCommissioningSource::" << __func__ << "]"
-//        << " Run type is " << SiStripEnumsAndStrings::runType( type ) << "!"
-//        << " Checking if cabling should be rebuilt using FED and device descriptions!...";
-//     edm::LogVerbatim(mlDqmSource_) << ss.str();
-//   } else { return; }
-
-//   // Build and retrieve SiStripConfigDb object using service
-//   SiStripConfigDb* db = edm::Service<SiStripConfigDb>().operator->(); //@@ NOT GUARANTEED TO BE THREAD SAFE!
-//   LogTrace(mlCabling_)
-//     << "[SiStripCommissioningSource::" << __func__ << "]"
-//     << " Nota bene: using the SiStripConfigDb API"
-//     << " as a \"service\" does not presently guarantee"
-//     << " thread-safe behaviour!...";
-
-//   if ( !db ) {
-//     edm::LogError(mlCabling_)
-//       << "[SiStripCommissioningSource::" << __func__ << "]"
-//       << " NULL pointer to SiStripConfigDb returned by service!"
-//       << " Cannot check if cabling needs to be rebuilt!";
-//     return;
-//   }
-
-//   if ( db->getFedConnections().empty() ) {
-//     edm::LogVerbatim(mlCabling_)
-//       << "[SiStripCommissioningSource::" << __func__ << "]"
-//       << " Datbase does not contain FED connections!"
-//       << " Do not need to rebuild cabling object based on FED and device descriptions!";
-//    return;
-//   }
-
-//   if ( fecCabling_ ) { delete fecCabling_; fecCabling_ = 0; }
-//   if ( fedCabling_ ) { delete fedCabling_; fedCabling_ = 0; }
-
-//   // Build FEC cabling
-//   fecCabling_ = new SiStripFecCabling();
-//   SiStripConfigDb::DcuDetIdMap mapping;
-//   SiStripFedCablingBuilderFromDb::buildFecCablingFromDevices( db,
-// 							      *fecCabling_,
-// 							      mapping );
-//   // Build FED cabling
-//   fedCabling_ = new SiStripFedCabling();
-//   SiStripFedCablingBuilderFromDb::getFedCabling( *fecCabling_,
-// 						 *fedCabling_ );
-
-//   edm::LogVerbatim(mlCabling_)
-//     << "[SiStripCommissioningSource::" << __func__ << "]"
-//     << " Cabling object rebuilt using on FED and device descriptions!";
-
-// }
