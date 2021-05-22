@@ -101,7 +101,7 @@ fi
 
 # set up CMSSW environment
 source $BASEDIR/scripts/setup_CC7.sh
-cd /opt/cmssw/Stable/2019/CMSSW_10_6_0_pre1/src
+cd $BASEDIR/cmssw/Stable/current
 eval `scram runtime -sh`
 
 # make the output storage directory if it does not already exist

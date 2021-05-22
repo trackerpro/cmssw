@@ -130,7 +130,7 @@ void CalibrationHistograms::printAnalyses() {
 
 //-----------------------------------------------------------------------------
 /** */
-void CalibrationHistograms::save(std::string& path, uint32_t run_number, std::string partitionName) {
+void CalibrationHistograms::save(std::string& path, const uint32_t & run_number, const std::string & partitionName) {
   // Construct path and filename
   std::stringstream ss;
   if (!path.empty()) {  // create with a specific outputName
@@ -167,7 +167,15 @@ void CalibrationHistograms::save(std::string& path, uint32_t run_number, std::st
                          << " Saving histograms to root file"
                          << " (This may take some time!)";
   path = ss.str();
-  bei()->save(path, sistrip::collate_);
+
+  if(not isClientInputFile_){
+    std::string stringToAppend = Form("%s/%s",sistrip::dqmRoot_,sistrip::collate_);
+    bei()->save(path, "",stringToAppend,sistrip::dqmRoot_);
+  }
+  else{
+    bei()->save(path, "");
+  }
+
   edm::LogVerbatim(mlDqmClient_) << "[CommissioningHistograms::" << __func__ << "]"
                                  << " Saved histograms to root file \"" << ss.str() << "\"!";
 
@@ -227,7 +235,7 @@ void CalibrationHistograms::save(std::string& path, uint32_t run_number, std::st
     }
   }
 
-  outputFile->cd();
+  outputFile->cd();  
   outputFile->cd("DQMData/Collate/SiStrip/ControlView");
 
   if (save_graph_isha)

@@ -40,7 +40,7 @@ SiStripCommissioningOfflineClient::SiStripCommissioningOfflineClient(const edm::
     : bei_(edm::Service<DQMStore>().operator->()),
       histos_(nullptr),
       outputFileName_(pset.getUntrackedParameter<std::string>("OutputRootFile", "")),
-      collateHistos_(!pset.getUntrackedParameter<bool>("UseClientFile", false)),
+      useClientFile_(pset.getUntrackedParameter<bool>("UseClientFile", false)),
       analyzeHistos_(pset.getUntrackedParameter<bool>("AnalyzeHistos", true)),
       xmlFile_((pset.getUntrackedParameter<edm::FileInPath>("SummaryXmlFile", edm::FileInPath())).fullPath()),
       createSummaryPlots_(false),
@@ -59,7 +59,7 @@ SiStripCommissioningOfflineClient::SiStripCommissioningOfflineClient(const edm::
                 pset.getUntrackedParameter<std::string>("FilePath"),
                 pset.existsAs<std::string>("PartitionName") ? pset.getParameter<std::string>("PartitionName") : "",
                 pset.getUntrackedParameter<uint32_t>("RunNumber"),
-                collateHistos_);
+                useClientFile_);
 }
 
 // -----------------------------------------------------------------------------
@@ -199,7 +199,7 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
     contents.clear();
     contents = temp;
   }
-
+  
   // Some debug
   LogTrace(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
                          << " Found " << contents.size() << " directories containing MonitorElements";
@@ -289,7 +289,7 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
                                 << " Aborting...";
     return;
   }
-
+  
   // Perform collation
   if (histos_) {
     histos_->extractHistograms(contents);
@@ -330,14 +330,15 @@ void SiStripCommissioningOfflineClient::beginRun(const edm::Run& run, const edm:
   if (histos_) {
     bool save = parameters_.getUntrackedParameter<bool>("SaveClientFile", true);
     if (save) {
-      if (runType_ != sistrip::CALIBRATION_SCAN and runType_ != sistrip::CALIBRATION_SCAN_DECO) {
-        if (runType_ != sistrip::DAQ_SCOPE_MODE)
-          histos_->save(outputFileName_, runNumber_);
-        else
-          histos_->save(outputFileName_, runNumber_, partitionName_);
-      } else {
-        CalibrationHistograms* histo = dynamic_cast<CalibrationHistograms*>(histos_);
-        histo->save(outputFileName_, runNumber_);
+      if(runType_ == sistrip::CALIBRATION_SCAN or runType_ == sistrip::CALIBRATION_SCAN_DECO){
+	CalibrationHistograms* histo = dynamic_cast<CalibrationHistograms*>(histos_);
+        histo->save(outputFileName_, runNumber_, "");
+      }
+      else if(runType_ == sistrip::DAQ_SCOPE_MODE){
+	histos_->save(outputFileName_, runNumber_, partitionName_);	
+      }
+      else{	
+	histos_->save(outputFileName_, runNumber_, "");
       }
     } else {
       edm::LogVerbatim(mlDqmClient_) << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
@@ -440,14 +441,14 @@ void SiStripCommissioningOfflineClient::setInputFiles(std::vector<std::string>& 
                                                       const std::string path,
                                                       const std::string partitionName,
                                                       uint32_t run_number,
-                                                      bool collate_histos) {
+                                                      bool clientFile) {
   std::string runStr;
   std::stringstream ss;
   ss << std::setfill('0') << std::setw(8) << run_number;
   runStr = ss.str();
 
   std::string nameStr = "";
-  if (!collate_histos) {
+  if (clientFile) {
     nameStr = "SiStripCommissioningClient_";
   } else {
     nameStr = "SiStripCommissioningSource_";
@@ -486,7 +487,7 @@ void SiStripCommissioningOfflineClient::setInputFiles(std::vector<std::string>& 
   closedir(dp);
 
   // Some debug
-  if (!collate_histos && files.size() > 1) {
+  if (clientFile && files.size() > 1) {
     std::stringstream ss;
     ss << "[SiStripCommissioningOfflineClient::" << __func__ << "]"
        << " Found more than one client file!";

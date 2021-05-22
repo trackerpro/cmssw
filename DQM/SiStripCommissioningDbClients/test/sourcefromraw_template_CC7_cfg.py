@@ -18,7 +18,6 @@ for result in runmode:
     runtype = int(result[0]);
 conn.close()
 
-
 process = cms.Process("SRC")
 
 process.load("DQM.SiStripCommon.MessageLogger_cfi")
@@ -35,11 +34,11 @@ process.SiStripConfigDb.TNS_ADMIN = '/etc'
 process.SiStripCondObjBuilderFromDb = cms.Service("SiStripCondObjBuilderFromDb")
 process.SiStripCondObjBuilderFromDb.UseFEC = cms.untracked.bool(True)
 process.SiStripCondObjBuilderFromDb.UseFED = cms.untracked.bool(True)
+process.SiStripCondObjBuilderFromDb.SiStripDetInfoFile = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
 
 process.FedCablingFromConfigDb = cms.ESSource("SiStripFedCablingBuilderFromDb",
     CablingSource = cms.untracked.string('UNDEFINED')  
 )
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 
 process.PedestalsFromConfigDb = cms.ESSource("SiStripPedestalsBuilderFromDb")
 process.NoiseFromConfigDb = cms.ESSource("SiStripNoiseBuilderFromDb")
@@ -61,8 +60,7 @@ process.FastMonitoringService = cms.Service("FastMonitoringService",
 process.EvFDaqDirector = cms.Service("EvFDaqDirector",
         runNumber = cms.untracked.uint32(RUNNUMBER),
         buBaseDir = cms.untracked.string(inputPath),
-        directorIsBu = cms.untracked.bool(False),
-        testModeNoBuilderUnit = cms.untracked.bool(False)
+        directorIsBU = cms.untracked.bool(False),
 )
 
 process.source = cms.Source("FedRawDataInputSource",

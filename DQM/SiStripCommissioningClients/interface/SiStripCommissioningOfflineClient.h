@@ -60,7 +60,7 @@ protected:
   std::string outputFileName_;
 
   /** */
-  bool collateHistos_;
+  bool useClientFile_;
 
   /** */
   bool analyzeHistos_;

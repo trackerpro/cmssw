@@ -21,8 +21,8 @@ process.FastMonitoringService = cms.Service("FastMonitoringService",
 process.EvFDaqDirector = cms.Service("EvFDaqDirector",
         runNumber = cms.untracked.uint32(RUNNUMBER),
         buBaseDir = cms.untracked.string(inputPath),
-        directorIsBu = cms.untracked.bool(False),
-        testModeNoBuilderUnit = cms.untracked.bool(False)
+        directorIsBU = cms.untracked.bool(False),
+        #testModeNoBuilderUnit = cms.untracked.bool(False)
 )
 
 process.source = cms.Source("FedRawDataInputSource",

@@ -32,12 +32,12 @@ process.SiStripConfigDb.TNS_ADMIN = '/etc'
 process.SiStripCondObjBuilderFromDb = cms.Service("SiStripCondObjBuilderFromDb")
 process.SiStripCondObjBuilderFromDb.UseFEC = cms.untracked.bool(True)
 process.SiStripCondObjBuilderFromDb.UseFED = cms.untracked.bool(True)
+process.SiStripCondObjBuilderFromDb.SiStripDetInfoFile = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
 
 process.FedCablingFromConfigDb = cms.ESSource("SiStripFedCablingBuilderFromDb",
     CablingSource = cms.untracked.string('UNDEFINED')  
 )
 
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 process.PedestalsFromConfigDb = cms.ESSource("SiStripPedestalsBuilderFromDb")
 process.NoiseFromConfigDb = cms.ESSource("SiStripNoiseBuilderFromDb")
 process.sistripconn = cms.ESProducer("SiStripConnectivity")
@@ -50,7 +50,7 @@ process.load("Geometry.TrackerNumberingBuilder.trackerNumberingGeometry_cfi")
 infilename = "file:"+inputPath+"/runRUNNUMBER/runRUNNUMBER.root"
     
 process.source = cms.Source("PoolSource",
-        fileNames = cms.untracked.vstring(infilename)
+        fileNames = cms.untracked.vstring(infilename),
         duplicateCheckMode = cms.untracked.string("noDuplicateCheck")                            
 )
 

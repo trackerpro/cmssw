@@ -70,17 +70,28 @@ void LegacyIOHelper::save(std::string const & filename,
       }
       if(not stringToAppend.empty()){
 	dirName = stringToAppend+"/"+dirName;
+	TString tmp (dirName);
+	tmp.ReplaceAll("//","/");
+	dirName = tmp.Data();
       }
     }
-
+    
     std::string objectName = me->getName();
+    auto result = gDirectory->mkdir(dirName.c_str(),"",true);
+    if(result == 0){ // either if failed .. if the directory already exists return a pointer to it
+      throw cms::Exception("DQMFileSaver") << "  Attempt to create directory '" << dirName
+                                           << "' in a file fails because the part '"
+                                           << "' already exists and is not directory or path is malformed";
+    }
+    gDirectory->cd(dirName.c_str());
 
     // Create dir if it doesn't exist and cd into it
-    createDirectoryIfNeededAndCd(dirName);
+    //createDirectoryIfNeededAndCd(dirName);
 
     // INTs are saved as strings in this format: <objectName>i=value</objectName>
     // REALs are saved as strings in this format: <objectName>f=value</objectName>
     // STRINGs are saved as strings in this format: <objectName>s="value"</objectName>
+
     if (me->kind() == MonitorElement::Kind::INT) {
       int value = me->getIntValue();
       std::string content = "<" + objectName + ">i=" + std::to_string(value) + "</" + objectName + ">";
@@ -100,10 +111,13 @@ void LegacyIOHelper::save(std::string const & filename,
       TObjString str(content.c_str());
       str.Write();
     } else {
+
       // Write a histogram
       TH1 *value = me->getTH1();
+      // ensure naming consistency
+      value->SetName(me->getName().c_str());
       value->Write();
-
+      
       if (me->getEfficiencyFlag()) {
         std::string content = "<" + objectName + ">e=1</" + objectName + ">";
         TObjString str(content.c_str());
@@ -142,7 +156,7 @@ bool LegacyIOHelper::createDirectoryIfNeededAndCd(const std::string &path) {
   size_t end = path.find('/', start);
   if (end == std::string::npos)
     end = path.size();
-
+  
   while (true) {
     // Check if this subdirectory component exists.  If yes, make sure
     // it is actually a subdirectory.  Otherwise create or cd into it.
@@ -150,20 +164,17 @@ bool LegacyIOHelper::createDirectoryIfNeededAndCd(const std::string &path) {
     TObject *o = gDirectory->Get(part.c_str());
     if (o && !dynamic_cast<TDirectory *>(o))
       throw cms::Exception("DQMFileSaver") << "Attempt to create directory '" << path
-                                           << "' in a file"
-                                              " fails because the part '"
-                                           << part
-                                           << "' already exists and is not"
-                                              " directory";
+					   << "' in a file fails because the part '"
+					   << part
+					   << "' already exists and is not directory";
     else if (!o)
       gDirectory->mkdir(part.c_str());
 
     if (!gDirectory->cd(part.c_str()))
       throw cms::Exception("DQMFileSaver") << "Attempt to create directory '" << path
-                                           << "' in a file"
-                                              " fails because could not cd into subdirectory '"
+                                           << "' in a file fails because could not cd into subdirectory '"
                                            << part << "'";
-
+    
     // Stop if we reached the end, ignoring any trailing '/'.
     if (end + 1 >= path.size())
       break;

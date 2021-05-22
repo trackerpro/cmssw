@@ -92,7 +92,9 @@ public:
 
   void remove(std::string pattern = "");
 
-  void save(std::string& filename, uint32_t run_number = 0, std::string partitionName = "");
+  void save(std::string& filename, const  uint32_t & run_number = 0, const std::string & partitionName = "");
+
+  bool isClientInputFile_;
 
   // ---------- protected methods ----------
 
@@ -151,6 +153,7 @@ private:
 
   Analyses dataWithMask_;
   bool dataWithMaskCached_;
+  
 };
 
 // ---------- inline methods ----------
