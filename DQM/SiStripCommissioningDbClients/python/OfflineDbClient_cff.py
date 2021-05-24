@@ -31,7 +31,9 @@ db_client = cms.EDAnalyzer("SiStripCommissioningOfflineDbClient",
         SkipPedestalUpdate  = cms.bool(False),
         SkipTickUpdate  = cms.bool(False)
         ),
-  FastFedCablingParameters = cms.PSet(),
+  FastFedCablingParameters = cms.PSet(
+      UploadFedDescription = cms.bool(False)
+  ),
   FedCablingParameters     = cms.PSet(),
   FedTimingParameters      = cms.PSet(),
   FineDelayParameters      = cms.PSet(

@@ -29,6 +29,8 @@ private:
   void create(SiStripConfigDb::AnalysisDescriptionsV&, Analysis) override;
 
   void connections(SiStripConfigDb::DeviceDescriptionsRange, SiStripConfigDb::DcuDetIdsRange);
+
+  bool uploadFedDescription_;
 };
 
 #endif  // DQM_SiStripCommissioningClients_FastFedCablingHistosUsingDb_H

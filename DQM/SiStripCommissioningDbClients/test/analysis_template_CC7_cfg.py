@@ -56,6 +56,8 @@ process.db_client.CalibrationParameters.tuneSimultaneously = cms.bool(True);
 
 process.db_client.PedestalsParameters.KeepStripsDisabled = cms.bool(True)
 
+process.db_client.FastFedCablingParameters.UploadFedDescription = cms.bool(False)
+
 process.db_client.DaqScopeModeParameters.DisableBadStrips =  cms.bool(False)
 process.db_client.DaqScopeModeParameters.KeepStripsDisabled = cms.bool(True)
 process.db_client.DaqScopeModeParameters.SkipPedestalUpdate = cms.bool(False)

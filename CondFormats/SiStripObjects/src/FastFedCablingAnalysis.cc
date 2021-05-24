@@ -95,10 +95,19 @@ void FastFedCablingAnalysis::reset() {
 // ----------------------------------------------------------------------------
 //
 bool FastFedCablingAnalysis::isValid() const {
-  return (dcuHardId_ < sistrip::invalid32_ && lldCh_ < sistrip::valid_ && highMedian_ < sistrip::valid_ &&
-          highMean_ < sistrip::valid_ && highRms_ < sistrip::valid_ && lowMedian_ < sistrip::valid_ &&
-          lowMean_ < sistrip::valid_ && lowRms_ < sistrip::valid_ && range_ < sistrip::valid_ &&
-          midRange_ < sistrip::valid_ && max_ < sistrip::valid_ && min_ < sistrip::valid_ && getErrorCodes().empty());
+  return (dcuHardId_ < sistrip::invalid32_ && 
+	  lldCh_ < sistrip::valid_ && 
+	  highMedian_ < sistrip::valid_ &&
+          highMean_ < sistrip::valid_ && 
+	  highRms_ < sistrip::valid_ && 
+	  lowMedian_ < sistrip::valid_ &&
+          lowMean_ < sistrip::valid_ && 
+	  lowRms_ < sistrip::valid_ && 
+	  range_ < sistrip::valid_ &&
+          midRange_ < sistrip::valid_ && 
+	  max_ < sistrip::valid_ && 
+	  min_ < sistrip::valid_ && 
+	  getErrorCodes().empty());
 }
 
 // ----------------------------------------------------------------------------

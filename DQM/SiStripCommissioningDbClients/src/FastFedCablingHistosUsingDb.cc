@@ -18,6 +18,8 @@ FastFedCablingHistosUsingDb::FastFedCablingHistosUsingDb(const edm::ParameterSet
           pset.getParameter<edm::ParameterSet>("FastFedCablingParameters"), bei, sistrip::FAST_CABLING),
       CommissioningHistosUsingDb(db, tTopoToken, sistrip::FAST_CABLING),
       FastFedCablingHistograms(pset.getParameter<edm::ParameterSet>("FastFedCablingParameters"), bei) {
+
+  uploadFedDescription_ = this->pset().getParameter<bool>("UploadFedDescription");
   LogTrace(mlDqmClient_) << "[FastFedCablingHistosUsingDb::" << __func__ << "]"
                          << " Constructing object...";
 }
@@ -70,7 +72,7 @@ void FastFedCablingHistosUsingDb::uploadConfigurations() {
 
     // Update FED descriptions with enabled/disabled channels
     update(feds);
-    if (doUploadConf()) {
+    if (doUploadConf() and uploadFedDescription_) {
       edm::LogVerbatim(mlDqmClient_) << "[FastFedCablingHistosUsingDb::" << __func__ << "]"
                                      << " Uploading FED descriptions to DB...";
       db()->uploadFedDescriptions(ip->second.partitionName());
@@ -81,7 +83,7 @@ void FastFedCablingHistosUsingDb::uploadConfigurations() {
       edm::LogWarning(mlDqmClient_) << "[FastFedCablingHistosUsingDb::" << __func__ << "]"
                                     << " TEST only! No FED descriptions will be uploaded to DB...";
     }
-
+    
     // Some debug on good / dirty / missing connections
     connections(dcus, detids);
   }
@@ -322,9 +324,7 @@ void FastFedCablingHistosUsingDb::addDcuDetIds() {
             found = true;
             anal->dcuId(dcu->getDcuHardId());
             const SiStripConfigDb::DeviceAddress& addr = db()->deviceAddress(*dcu);
-            uint32_t fec_key =
-                SiStripFecKey(addr.fecCrate_, addr.fecSlot_, addr.fecRing_, addr.ccuAddr_, addr.ccuChan_, anal->lldCh())
-                    .key();
+            uint32_t fec_key = SiStripFecKey(addr.fecCrate_, addr.fecSlot_, addr.fecRing_, addr.ccuAddr_, addr.ccuChan_, anal->lldCh()).key();
             anal->fecKey(fec_key);
             SiStripConfigDb::DcuDetIdsV::const_iterator idet = detids.end();
             idet = SiStripConfigDb::findDcuDetId(detids.begin(), detids.end(), dcu->getDcuHardId());
